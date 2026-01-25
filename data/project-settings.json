@@ -1,0 +1,28 @@
+[
+  {
+    "github_repo_name": "Hybrid-Self-Evolving-Neural-Network",
+    "is_visible": true,
+    "custom_description": null,
+    "display_order": 0,
+    "image_url": "/uploads/1769280497069-WhatsApp_Image_2026-01-24_at_23.47.59.jpeg"
+  },
+  {
+    "github_repo_name": "LLMTrace",
+    "is_visible": true,
+    "custom_description": null,
+    "display_order": 1,
+    "image_url": "/uploads/1769280183974-WhatsApp_Image_2026-01-24_at_23.50.29.jpeg"
+  },
+  {
+    "github_repo_name": "mani30mk",
+    "is_visible": false,
+    "custom_description": null,
+    "display_order": 2
+  },
+  {
+    "github_repo_name": "CrossLingual-Neural-Occupation-Classifier-CNOC",
+    "is_visible": false,
+    "custom_description": null,
+    "display_order": 3
+  }
+]
