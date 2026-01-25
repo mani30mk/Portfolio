@@ -1,71 +1,72 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { promises as fs } from 'fs'
-import path from 'path'
-
-const MESSAGES_FILE = path.join(process.cwd(), 'data', 'messages.json')
-
-interface ContactMessage {
-    id: string
-    name: string
-    email: string
-    message: string
-    is_read: boolean
-    created_at: string
-}
-
-async function readMessages(): Promise<ContactMessage[]> {
-    try {
-        const data = await fs.readFile(MESSAGES_FILE, 'utf-8')
-        return JSON.parse(data)
-    } catch {
-        return []
-    }
-}
-
-async function saveMessages(messages: ContactMessage[]) {
-    await fs.writeFile(MESSAGES_FILE, JSON.stringify(messages, null, 2))
-}
+import dbConnect from '@/lib/mongodb'
+import Message from '@/models/Message'
+import { cookies } from 'next/headers'
 
 // GET - List messages
 export async function GET(request: NextRequest) {
-    const sessionCookie = request.cookies.get('admin_session')
+    const cookieStore = await cookies()
+    const sessionCookie = cookieStore.get('admin_session')
+
     if (!sessionCookie?.value) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const messages = await readMessages()
-    return NextResponse.json(messages)
+    try {
+        await dbConnect()
+        const messages = await Message.find({}).sort({ createdAt: -1 })
+
+        // Map _id to id for frontend compatibility
+        const formattedMessages = messages.map(m => ({
+            id: m._id,
+            name: m.name,
+            email: m.email,
+            message: m.message,
+            is_read: m.is_read,
+            created_at: m.createdAt
+        }))
+
+        return NextResponse.json(formattedMessages)
+    } catch (error) {
+        console.error('Error fetching messages:', error)
+        return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    }
 }
 
 // DELETE - Delete a message
 export async function DELETE(request: NextRequest) {
-    const sessionCookie = request.cookies.get('admin_session')
+    const cookieStore = await cookies()
+    const sessionCookie = cookieStore.get('admin_session')
+
     if (!sessionCookie?.value) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { id } = await request.json()
-    let messages = await readMessages()
-    messages = messages.filter(m => m.id !== id)
-    await saveMessages(messages)
-
-    return NextResponse.json({ success: true })
+    try {
+        const { id } = await request.json()
+        await dbConnect()
+        await Message.findByIdAndDelete(id)
+        return NextResponse.json({ success: true })
+    } catch (error) {
+        return NextResponse.json({ error: 'Failed to delete' }, { status: 500 })
+    }
 }
 
 // PATCH - Mark as read
 export async function PATCH(request: NextRequest) {
-    const sessionCookie = request.cookies.get('admin_session')
+    const cookieStore = await cookies()
+    const sessionCookie = cookieStore.get('admin_session')
+
     if (!sessionCookie?.value) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { id } = await request.json()
-    const messages = await readMessages()
-    const message = messages.find(m => m.id === id)
-    if (message) {
-        message.is_read = true
-        await saveMessages(messages)
+    try {
+        const { id } = await request.json()
+        await dbConnect()
+        await Message.findByIdAndUpdate(id, { is_read: true })
+        return NextResponse.json({ success: true })
+    } catch (error) {
+        return NextResponse.json({ error: 'Failed to update' }, { status: 500 })
     }
-
-    return NextResponse.json({ success: true })
 }

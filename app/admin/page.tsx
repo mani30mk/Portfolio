@@ -203,15 +203,18 @@ export default function AdminPage() {
         body: formData,
       })
 
-      if (!res.ok) throw new Error("Upload failed")
-
       const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || "Upload failed")
+      }
+
       if (data.url) {
         updateImageURL(repoName, data.url)
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error uploading image:", error)
-      alert("Failed to upload image")
+      alert(error.message || "Failed to upload image. Please use an external URL.")
     }
   }
 
