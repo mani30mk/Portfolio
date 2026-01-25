@@ -2,9 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Switch } from "@/components/ui/switch"
 import {
   Mail,
   Folder,
@@ -12,10 +10,8 @@ import {
   Save,
   RefreshCw,
   Terminal,
-  Eye,
-  EyeOff,
-  GripVertical
 } from "lucide-react"
+import { ProjectItem } from "@/components/admin/project-item"
 
 interface Message {
   id: string
@@ -183,12 +179,14 @@ export default function AdminPage() {
   }
 
   function updateImageURL(repoName: string, url: string) {
-    const settings = projectSettings.get(repoName)
-    if (settings) {
-      const newSettings = new Map(projectSettings)
-      newSettings.set(repoName, { ...settings, image_url: url || null })
-      setProjectSettings(newSettings)
-    }
+    setProjectSettings((prev) => {
+      const newSettings = new Map(prev)
+      const settings = newSettings.get(repoName)
+      if (settings) {
+        newSettings.set(repoName, { ...settings, image_url: url })
+      }
+      return newSettings
+    })
   }
 
   async function handleImageUpload(repoName: string, file: File) {
@@ -477,106 +475,17 @@ export default function AdminPage() {
                 {repos.map((repo, index) => {
                   const settings = projectSettings.get(repo.name)
                   return (
-                    <div
+                    <ProjectItem
                       key={repo.id}
-                      className={`border p-4 ${settings?.is_visible
-                        ? "border-foreground bg-muted"
-                        : "border-border bg-background"
-                        }`}
-                    >
-                      <div className="flex items-start gap-4">
-                        <div className="flex items-center gap-2 pt-1">
-                          <GripVertical className="h-4 w-4 text-muted-foreground" />
-                          <Switch
-                            checked={settings?.is_visible || false}
-                            onCheckedChange={() => toggleVisibility(repo.name)}
-                          />
-                        </div>
-
-                        <div className="flex-1 min-w-0 space-y-3">
-                          <div className="flex items-center gap-2">
-                            {settings?.is_visible ? (
-                              <Eye className="h-4 w-4 text-foreground" />
-                            ) : (
-                              <EyeOff className="h-4 w-4 text-muted-foreground" />
-                            )}
-                            <h3 className="font-mono text-sm font-bold">
-                              {repo.name}
-                            </h3>
-                            {repo.language && (
-                              <span className="font-mono text-xs text-muted-foreground border border-border px-2 py-0.5">
-                                {repo.language}
-                              </span>
-                            )}
-                          </div>
-
-                          <p className="text-sm text-muted-foreground">
-                            {repo.description || "No description"}
-                          </p>
-
-                          {settings?.is_visible && (
-                            <div className="space-y-4 pt-4 border-t border-border mt-4">
-                              <div className="grid gap-2">
-                                <label className="font-mono text-xs uppercase text-muted-foreground">
-                                  Custom Description (optional)
-                                </label>
-                                <Input
-                                  value={settings?.custom_description || ""}
-                                  onChange={(e) => updateDescription(repo.name, e.target.value)}
-                                  placeholder="Override the GitHub description..."
-                                  className="font-mono text-sm"
-                                />
-                              </div>
-
-                              <div className="grid gap-2">
-                                <label className="font-mono text-xs uppercase text-muted-foreground">
-                                  Project Image (Upload or URL)
-                                </label>
-                                <div className="flex gap-2">
-                                  <Input
-                                    type="file"
-                                    accept="image/*"
-                                    onChange={(e) => {
-                                      const file = e.target.files?.[0]
-                                      if (file) handleImageUpload(repo.name, file)
-                                    }}
-                                    className="font-mono text-sm file:mr-4 file:py-1 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-foreground file:text-background hover:file:bg-foreground/90 cursor-pointer"
-                                  />
-                                </div>
-                                <Input
-                                  value={settings?.image_url || ""}
-                                  onChange={(e) => updateImageURL(repo.name, e.target.value)}
-                                  placeholder="https://example.com/image.jpg"
-                                  className="font-mono text-sm mt-1"
-                                />
-                                {settings?.image_url && (
-                                  <div className="relative w-full h-32 bg-muted mt-2 rounded-md overflow-hidden border border-border">
-                                    <img
-                                      src={settings.image_url}
-                                      alt="Preview"
-                                      className="w-full h-full object-cover"
-                                    />
-                                  </div>
-                                )}
-                              </div>
-
-                              <div className="flex items-center gap-2">
-                                <label className="font-mono text-xs uppercase text-muted-foreground">
-                                  Display Order:
-                                </label>
-                                <Input
-                                  type="number"
-                                  value={settings?.display_order || index}
-                                  onChange={(e) => updateDisplayOrder(repo.name, parseInt(e.target.value) || 0)}
-                                  className="font-mono text-sm w-20"
-                                  min={0}
-                                />
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
+                      repo={repo}
+                      settings={settings}
+                      index={index}
+                      onToggleVisibility={toggleVisibility}
+                      onUpdateDescription={updateDescription}
+                      onUpdateImageURL={updateImageURL}
+                      onUpdateDisplayOrder={updateDisplayOrder}
+                      onImageUpload={handleImageUpload}
+                    />
                   )
                 })}
               </div>

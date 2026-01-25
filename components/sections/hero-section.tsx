@@ -55,7 +55,7 @@ export function HeroSection() {
             </div>
 
             <p className="text-muted-foreground text-lg max-w-md leading-relaxed">
-              Computer Science student specializing in backend systems, distributed architecture, and the occasional retro-themed UI.
+              Engineering intelligent, production-ready Machine Learning and Deep Learning applications that bridge data, algorithms, and modern web experiences.
             </p>
 
             <div className="flex gap-4 pt-4">

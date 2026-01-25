@@ -10,7 +10,7 @@ const quickLinks = [
   },
   {
     label: "LINKEDIN",
-    href: "www.linkedin.com/in/manikandan-s-166781301/",
+    href: "https://www.linkedin.com/in/manikandan-s-166781301/",
     icon: Linkedin,
     external: true,
   },
