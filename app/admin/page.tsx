@@ -243,6 +243,8 @@ export default function AdminPage() {
         };
       });
 
+      console.log("Saving project settings:", projectsToSave);
+
       const response = await fetch("/api/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

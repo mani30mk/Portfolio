@@ -26,7 +26,14 @@ export function HeroSection() {
 
   useEffect(() => {
     let currentLine = 0
+    let isMounted = true
+
+    // Reset terminal lines on mount
+    setTerminalLines([])
+
     const interval = setInterval(() => {
+      if (!isMounted) return
+
       if (currentLine < fullTerminalContent.length) {
         setTerminalLines(prev => [...prev, fullTerminalContent[currentLine]])
         currentLine++
@@ -35,7 +42,10 @@ export function HeroSection() {
       }
     }, 150)
 
-    return () => clearInterval(interval)
+    return () => {
+      isMounted = false
+      clearInterval(interval)
+    }
   }, [])
 
   return (
@@ -82,28 +92,33 @@ export function HeroSection() {
           </div>
 
           {/* Right Side - Terminal Window */}
-          <div className="bg-foreground rounded-lg overflow-hidden shadow-2xl">
+          <div className="bg-foreground rounded-lg overflow-hidden shadow-2xl border border-border">
             {/* Terminal Header */}
-            <div className="flex items-center gap-2 px-4 py-3 bg-muted-foreground/20">
-              <span className="text-xs text-muted font-mono">mani ~ bash</span>
+            <div className="flex items-center gap-2 px-4 py-3 bg-muted/10 border-b border-border">
+              <div className="flex gap-1.5">
+                <div className="w-3 h-3 rounded-full bg-destructive/50" />
+                <div className="w-3 h-3 rounded-full bg-warning/50" />
+                <div className="w-3 h-3 rounded-full bg-success/50" />
+              </div>
+              <span className="text-xs text-background/60 font-mono ml-2">mani ~ bash</span>
             </div>
 
             {/* Terminal Content */}
-            <div className="p-6 font-mono text-sm text-background min-h-[320px]">
+            <div className="p-6 font-mono text-sm text-background min-h-[350px] overflow-auto max-h-[450px]">
               {terminalLines.map((line, index) => (
-                <div key={index} className="leading-relaxed">
+                <div key={index} className="leading-relaxed mb-1 min-h-[1.25rem]">
                   {line?.startsWith("$") ? (
-                    <span className="text-background/80">{line}</span>
+                    <span className="text-background/90">{line}</span>
                   ) : line?.startsWith(">") ? (
-                    <span className="text-background/60">{line}</span>
-                  ) : line?.startsWith("Major:") || line?.startsWith("GPA:") ? (
+                    <span className="text-background/70">{line}</span>
+                  ) : line && (line.startsWith("Major:") || line.startsWith("active:") || line.startsWith("memory:") || line.startsWith("status:")) ? (
                     <span className="text-background font-semibold">{line}</span>
                   ) : (
-                    <span>&nbsp;</span>
+                    <span className="text-background/50">{line}</span>
                   )}
                 </div>
               ))}
-              <span className="inline-block w-2 h-4 bg-background/80 animate-pulse ml-1" />
+              <span className="inline-block w-2 h-4 bg-background/80 animate-pulse ml-1 align-middle" />
             </div>
           </div>
         </div>
