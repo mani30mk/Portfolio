@@ -83,7 +83,7 @@ export function HeroSection() {
                 className="border-foreground text-foreground hover:bg-foreground hover:text-background font-mono uppercase tracking-wider bg-transparent"
                 asChild
               >
-                <a href="/assets/Manikandan_Resume.pdf" target="_blank" rel="noreferrer">
+                <a href="/assets/Manikandan_S_Resume.pdf" target="_blank" rel="noreferrer">
                   <Download className="mr-2 h-4 w-4" />
                   Resume
                 </a>
