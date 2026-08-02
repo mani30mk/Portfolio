@@ -54,6 +54,7 @@ export default function AdminPage() {
   const [authChecking, setAuthChecking] = useState(true)
   const [resumeUploading, setResumeUploading] = useState(false)
   const [currentResume, setCurrentResume] = useState<string | null>(null)
+  const [resumeVersion, setResumeVersion] = useState(Date.now())
 
   useEffect(() => {
     checkAuth()
@@ -307,6 +308,7 @@ export default function AdminPage() {
       if (res.ok) {
         const data = await res.json()
         setCurrentResume(data.filename)
+        setResumeVersion(Date.now())
         alert('Resume uploaded successfully!')
       } else {
         const data = await res.json()
@@ -581,13 +583,12 @@ export default function AdminPage() {
                   <span className="font-mono text-sm text-muted-foreground">
                     📄 {currentResume}
                   </span>
-                  <a
-                    href="/api/resume"
-                    target="_blank"
-                    className="font-mono text-xs uppercase tracking-wider border border-foreground px-3 py-1.5 hover:bg-foreground hover:text-background transition-colors"
+                  <button
+                    onClick={() => window.open(`/api/resume?t=${resumeVersion}`, '_blank')}
+                    className="font-mono text-xs uppercase tracking-wider border border-foreground px-3 py-1.5 hover:bg-foreground hover:text-background transition-colors cursor-pointer"
                   >
                     Preview
-                  </a>
+                  </button>
                 </div>
               ) : (
                 <p className="font-mono text-sm text-muted-foreground">No resume uploaded yet.</p>
