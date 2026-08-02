@@ -1,16 +1,17 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
 import Resume from '@/models/Resume';
 
 // Public endpoint to download/view the resume
-export async function GET() {
+export async function GET(req: NextRequest) {
     try {
         await dbConnect();
         const resume = await Resume.findOne().sort({ uploadedAt: -1 });
 
         if (!resume) {
             // Fallback: redirect to the static file if no resume in DB
-            return NextResponse.redirect(new URL('/assets/Manikandan_Resume.pdf', process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'));
+            const origin = req.nextUrl.origin;
+            return NextResponse.redirect(`${origin}/assets/Manikandan_Resume.pdf`);
         }
 
         // Convert base64 back to buffer
@@ -20,12 +21,13 @@ export async function GET() {
             headers: {
                 'Content-Type': 'application/pdf',
                 'Content-Disposition': `inline; filename="${resume.filename}"`,
-                'Cache-Control': 'public, max-age=3600',
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
             },
         });
     } catch (error) {
         console.error('Error serving resume:', error);
         // Fallback to static file
-        return NextResponse.redirect(new URL('/assets/Manikandan_Resume.pdf', process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'));
+        const origin = req.nextUrl.origin;
+        return NextResponse.redirect(`${origin}/assets/Manikandan_Resume.pdf`);
     }
 }
