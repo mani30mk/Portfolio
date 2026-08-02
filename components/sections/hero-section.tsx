@@ -80,13 +80,11 @@ export function HeroSection() {
               </Button>
               <Button
                 variant="outline"
-                className="border-foreground text-foreground hover:bg-foreground hover:text-background font-mono uppercase tracking-wider bg-transparent"
-                asChild
+                className="border-foreground text-foreground hover:bg-foreground hover:text-background font-mono uppercase tracking-wider bg-transparent cursor-pointer"
+                onClick={() => window.open(`/api/resume?t=${Date.now()}`, '_blank')}
               >
-                <a href="/api/resume" target="_blank" rel="noreferrer">
                   <Download className="mr-2 h-4 w-4" />
                   Resume
-                </a>
               </Button>
             </div>
           </div>
