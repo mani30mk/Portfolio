@@ -582,7 +582,7 @@ export default function AdminPage() {
                     📄 {currentResume}
                   </span>
                   <a
-                    href="/assets/Manikandan_Resume.pdf"
+                    href="/api/resume"
                     target="_blank"
                     className="font-mono text-xs uppercase tracking-wider border border-foreground px-3 py-1.5 hover:bg-foreground hover:text-background transition-colors"
                   >
