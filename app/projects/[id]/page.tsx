@@ -96,7 +96,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           </div>
           <div>
             <Link
-              href="/#projects"
+              href="/"
               className="font-mono text-sm uppercase tracking-wider text-foreground border border-foreground px-6 py-3 hover:bg-foreground hover:text-background transition-colors inline-block"
             >
               <ArrowLeft className="inline mr-2 h-4 w-4" />
@@ -126,7 +126,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             {project.title}
           </Link>
           <Link
-            href="/#projects"
+            href="/"
             className="font-mono text-xs uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2"
           >
             <ArrowLeft className="h-3 w-3" />
@@ -150,7 +150,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           <div className="font-mono text-xs text-muted-foreground mb-8 flex items-center gap-2">
             <Link href="/" className="hover:text-foreground transition-colors">~</Link>
             <span>/</span>
-            <Link href="/#projects" className="hover:text-foreground transition-colors">projects</Link>
+            <Link href="/" className="hover:text-foreground transition-colors">projects</Link>
             <span>/</span>
             <span className="text-foreground">{project.githubRepoName || project.title}</span>
           </div>
@@ -303,7 +303,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
               </p>
             </div>
             <Link
-              href="/#projects"
+              href="/"
               className="font-mono text-xs uppercase tracking-wider text-foreground border border-foreground px-6 py-3 hover:bg-foreground hover:text-background transition-colors inline-flex items-center gap-2"
             >
               <ArrowLeft className="h-3 w-3" />
