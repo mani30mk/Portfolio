@@ -4,6 +4,7 @@ import Resume from '@/models/Resume';
 
 // Prevent Next.js from caching this route
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 // Public endpoint to download/view the resume
 export async function GET(req: NextRequest) {
@@ -12,9 +13,7 @@ export async function GET(req: NextRequest) {
         const resume = await Resume.findOne().sort({ uploadedAt: -1 });
 
         if (!resume) {
-            // Fallback: redirect to the static file if no resume in DB
-            const origin = req.nextUrl.origin;
-            return NextResponse.redirect(`${origin}/assets/Manikandan_Resume.pdf`);
+            return new NextResponse('No resume found', { status: 404 });
         }
 
         // Convert base64 back to buffer
@@ -24,13 +23,13 @@ export async function GET(req: NextRequest) {
             headers: {
                 'Content-Type': 'application/pdf',
                 'Content-Disposition': `inline; filename="${resume.filename}"`,
-                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0',
             },
         });
     } catch (error) {
         console.error('Error serving resume:', error);
-        // Fallback to static file
-        const origin = req.nextUrl.origin;
-        return NextResponse.redirect(`${origin}/assets/Manikandan_Resume.pdf`);
+        return new NextResponse('Error loading resume', { status: 500 });
     }
 }
