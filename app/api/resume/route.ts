@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
 import Resume from '@/models/Resume';
 
+// Prevent Next.js from caching this route
+export const dynamic = 'force-dynamic';
+
 // Public endpoint to download/view the resume
 export async function GET(req: NextRequest) {
     try {
