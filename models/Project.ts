@@ -29,6 +29,10 @@ const ProjectSchema = new mongoose.Schema({
         unique: true, // Useful for syncing
         required: false
     },
+    demoVideoUrl: {
+        type: String,
+        // Optional: Cloudinary or external video URL for project demo
+    },
     isVisible: {
         type: Boolean,
         default: false,

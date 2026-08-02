@@ -15,6 +15,7 @@ interface ProjectItemProps {
     onToggleVisibility: (name: string) => void
     onUpdateDescription: (name: string, value: string) => void
     onUpdateImageURL: (name: string, value: string) => void
+    onUpdateVideoURL: (name: string, value: string) => void
     onUpdateDisplayOrder: (name: string, value: number) => void
     onImageUpload: (name: string, file: File) => void
 }
@@ -26,6 +27,7 @@ export const ProjectItem = memo(function ProjectItem({
     onToggleVisibility,
     onUpdateDescription,
     onUpdateImageURL,
+    onUpdateVideoURL,
     onUpdateDisplayOrder,
     onImageUpload,
 }: ProjectItemProps) {
@@ -109,6 +111,23 @@ export const ProjectItem = memo(function ProjectItem({
                                             className="w-full h-full object-cover"
                                         />
                                     </div>
+                                )}
+                            </div>
+
+                            <div className="grid gap-2">
+                                <label className="font-mono text-xs uppercase text-muted-foreground">
+                                    Demo Video URL (optional)
+                                </label>
+                                <Input
+                                    value={settings?.video_url ?? ""}
+                                    onChange={(e) => onUpdateVideoURL(repo.name, e.target.value)}
+                                    placeholder="https://res.cloudinary.com/... or any video URL"
+                                    className="font-mono text-sm"
+                                />
+                                {settings?.video_url && (
+                                    <p className="font-mono text-xs text-muted-foreground">
+                                        ✅ Video URL set
+                                    </p>
                                 )}
                             </div>
 

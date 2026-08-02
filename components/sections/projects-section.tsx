@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { Folder, ExternalLink, Github } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Image from "next/image"
+import Link from "next/link"
 
 
 interface GitHubRepo {
@@ -116,9 +117,10 @@ export function ProjectsSection() {
         ) : (
           <div className="grid md:grid-cols-2 gap-8">
             {projects.map((project, index) => (
-              <div
+              <Link
                 key={project.id}
-                className="border border-foreground bg-background overflow-hidden group"
+                href={`/projects/${project.id}`}
+                className="block border border-foreground bg-background overflow-hidden group cursor-pointer transition-all duration-300 hover:shadow-[8px_8px_0px_0px] hover:shadow-foreground/20 hover:-translate-y-1"
               >
                 {/* Project Image */}
                 <div className="relative h-56 bg-muted overflow-hidden">
@@ -141,6 +143,13 @@ export function ProjectsSection() {
                     fill
                     className="object-cover grayscale group-hover:grayscale-0 transition-all duration-500"
                   />
+
+                  {/* Hover overlay */}
+                  <div className="absolute inset-0 bg-foreground/0 group-hover:bg-foreground/10 transition-colors duration-300 flex items-center justify-center">
+                    <span className="font-mono text-xs uppercase tracking-widest text-background opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-foreground/80 px-4 py-2">
+                      View Project →
+                    </span>
+                  </div>
                 </div>
 
                 {/* Project Info */}
@@ -175,29 +184,33 @@ export function ProjectsSection() {
                       variant="outline"
                       size="sm"
                       className="font-mono text-xs uppercase tracking-wider border-foreground text-foreground hover:bg-foreground hover:text-background bg-transparent"
-                      asChild
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        window.open(project.html_url, "_blank", "noopener,noreferrer")
+                      }}
                     >
-                      <a href={project.html_url} target="_blank" rel="noopener noreferrer">
-                        <Github className="mr-2 h-3 w-3" />
-                        Repo/Source
-                      </a>
+                      <Github className="mr-2 h-3 w-3" />
+                      Repo/Source
                     </Button>
                     {project.homepage && (
                       <Button
                         variant="outline"
                         size="sm"
                         className="font-mono text-xs uppercase tracking-wider border-foreground text-foreground hover:bg-foreground hover:text-background bg-transparent"
-                        asChild
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          window.open(project.homepage!, "_blank", "noopener,noreferrer")
+                        }}
                       >
-                        <a href={project.homepage} target="_blank" rel="noopener noreferrer">
-                          <ExternalLink className="mr-2 h-3 w-3" />
-                          Demo
-                        </a>
+                        <ExternalLink className="mr-2 h-3 w-3" />
+                        Demo
                       </Button>
                     )}
                   </div>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         )}

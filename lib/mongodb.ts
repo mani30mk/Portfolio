@@ -1,4 +1,9 @@
+import dns from 'dns';
 import mongoose from 'mongoose';
+
+// Use Google Public DNS to resolve MongoDB Atlas SRV records
+// (some networks block SRV DNS queries)
+dns.setServers(['8.8.8.8', '8.8.4.4']);
 
 const MONGODB_URI = process.env.MONGODB_URI;
 

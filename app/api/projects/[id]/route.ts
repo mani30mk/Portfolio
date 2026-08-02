@@ -3,6 +3,32 @@ import dbConnect from '@/lib/mongodb';
 import Project from '@/models/Project';
 import { cookies } from 'next/headers';
 
+export async function GET(
+    req: Request,
+    { params }: { params: Promise<{ id: string }> }
+) {
+    try {
+        const { id } = await params;
+        await dbConnect();
+        const project = await Project.findById(id);
+
+        if (!project) {
+            return NextResponse.json(
+                { error: 'Project not found' },
+                { status: 404 }
+            );
+        }
+
+        return NextResponse.json(project);
+    } catch (error) {
+        console.error('Error fetching project:', error);
+        return NextResponse.json(
+            { error: 'Internal server error' },
+            { status: 500 }
+        );
+    }
+}
+
 export async function PUT(
     req: Request,
     { params }: { params: Promise<{ id: string }> }

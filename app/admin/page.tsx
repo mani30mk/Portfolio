@@ -10,6 +10,8 @@ import {
   Save,
   RefreshCw,
   Terminal,
+  Upload,
+  FileText,
 } from "lucide-react"
 import { ProjectItem } from "@/components/admin/project-item"
 
@@ -38,6 +40,7 @@ interface ProjectSettings {
   is_visible: boolean
   custom_description: string | null
   image_url: string | null
+  video_url: string | null
   display_order: number
 }
 
@@ -49,6 +52,8 @@ export default function AdminPage() {
   const [saving, setSaving] = useState(false)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [authChecking, setAuthChecking] = useState(true)
+  const [resumeUploading, setResumeUploading] = useState(false)
+  const [currentResume, setCurrentResume] = useState<string | null>(null)
 
   useEffect(() => {
     checkAuth()
@@ -101,6 +106,7 @@ export default function AdminPage() {
             is_visible: p.isVisible,
             custom_description: p.description,
             image_url: p.imageUrl,
+            video_url: p.demoVideoUrl || null,
             display_order: p.displayOrder || 0
           }))
         }
@@ -120,6 +126,7 @@ export default function AdminPage() {
               is_visible: false,
               custom_description: null,
               image_url: null,
+              video_url: null,
               display_order: index,
             })
           }
@@ -225,6 +232,17 @@ export default function AdminPage() {
     }
   }
 
+  function updateVideoURL(repoName: string, url: string) {
+    setProjectSettings((prev) => {
+      const newSettings = new Map(prev)
+      const settings = newSettings.get(repoName)
+      if (settings) {
+        newSettings.set(repoName, { ...settings, video_url: url || null })
+      }
+      return newSettings
+    })
+  }
+
   async function saveProjectSettings() {
     setSaving(true)
     try {
@@ -235,6 +253,7 @@ export default function AdminPage() {
           title: settings.github_repo_name,
           description: settings.custom_description || repo?.description || "No description",
           imageUrl: settings.image_url || null,
+          demoVideoUrl: settings.video_url || null,
           technologies: repo?.topics || [], // Map topics to technologies
           githubUrl: repo?.html_url,
           githubRepoName: settings.github_repo_name,
@@ -268,6 +287,48 @@ export default function AdminPage() {
     await fetch("/api/auth/logout", { method: "POST" })
     window.location.href = "/"
   }
+
+  async function handleResumeUpload(file: File) {
+    if (!file || !file.name.endsWith('.pdf')) {
+      alert('Please upload a PDF file')
+      return
+    }
+
+    setResumeUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+
+      const res = await fetch('/api/admin/resume', {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        setCurrentResume(data.filename)
+        alert('Resume uploaded successfully!')
+      } else {
+        const data = await res.json()
+        throw new Error(data.error || 'Upload failed')
+      }
+    } catch (error: any) {
+      console.error('Error uploading resume:', error)
+      alert(error.message || 'Failed to upload resume')
+    } finally {
+      setResumeUploading(false)
+    }
+  }
+
+  // Check current resume on load
+  useEffect(() => {
+    fetch('/api/admin/resume')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.filename) setCurrentResume(data.filename)
+      })
+      .catch(() => {})
+  }, [isAuthenticated])
 
   if (authChecking) {
     return <div className="min-h-screen flex items-center justify-center font-mono">Loading...</div>
@@ -327,6 +388,10 @@ export default function AdminPage() {
             <TabsTrigger value="messages" className="font-mono text-sm uppercase gap-2">
               <Mail className="h-4 w-4" />
               Messages {unreadCount > 0 && `(${unreadCount})`}
+            </TabsTrigger>
+            <TabsTrigger value="resume" className="font-mono text-sm uppercase gap-2">
+              <FileText className="h-4 w-4" />
+              Resume
             </TabsTrigger>
           </TabsList>
 
@@ -485,6 +550,7 @@ export default function AdminPage() {
                       onToggleVisibility={toggleVisibility}
                       onUpdateDescription={updateDescription}
                       onUpdateImageURL={updateImageURL}
+                      onUpdateVideoURL={updateVideoURL}
                       onUpdateDisplayOrder={updateDisplayOrder}
                       onImageUpload={handleImageUpload}
                     />
@@ -492,6 +558,76 @@ export default function AdminPage() {
                 })}
               </div>
             )}
+          </TabsContent>
+
+          {/* Resume Tab */}
+          <TabsContent value="resume" className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="font-mono text-lg font-bold uppercase tracking-wider">
+                Resume Management
+              </h2>
+            </div>
+
+            {/* Current Resume Status */}
+            <div className="border border-foreground bg-muted p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <FileText className="h-5 w-5 text-foreground" />
+                <h3 className="font-mono text-sm font-bold uppercase">
+                  Current Resume
+                </h3>
+              </div>
+              {currentResume ? (
+                <div className="flex items-center gap-4">
+                  <span className="font-mono text-sm text-muted-foreground">
+                    📄 {currentResume}
+                  </span>
+                  <a
+                    href="/assets/Manikandan_Resume.pdf"
+                    target="_blank"
+                    className="font-mono text-xs uppercase tracking-wider border border-foreground px-3 py-1.5 hover:bg-foreground hover:text-background transition-colors"
+                  >
+                    Preview
+                  </a>
+                </div>
+              ) : (
+                <p className="font-mono text-sm text-muted-foreground">No resume uploaded yet.</p>
+              )}
+            </div>
+
+            {/* Upload New Resume */}
+            <div className="border border-border p-6">
+              <h3 className="font-mono text-sm font-bold uppercase mb-4">
+                Upload New Resume
+              </h3>
+              <div
+                className="border-2 border-dashed border-foreground/30 p-8 text-center hover:border-foreground/60 transition-colors cursor-pointer"
+                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const file = e.dataTransfer.files[0];
+                  if (file) handleResumeUpload(file);
+                }}
+                onClick={() => {
+                  const input = document.createElement('input');
+                  input.type = 'file';
+                  input.accept = '.pdf';
+                  input.onchange = (e) => {
+                    const file = (e.target as HTMLInputElement).files?.[0];
+                    if (file) handleResumeUpload(file);
+                  };
+                  input.click();
+                }}
+              >
+                <Upload className="h-8 w-8 mx-auto mb-3 text-muted-foreground" />
+                <p className="font-mono text-sm text-foreground mb-1">
+                  {resumeUploading ? 'Uploading...' : 'Click or drag & drop to upload'}
+                </p>
+                <p className="font-mono text-xs text-muted-foreground">
+                  PDF files only • This will replace the current resume
+                </p>
+              </div>
+            </div>
           </TabsContent>
         </Tabs>
       </main>
