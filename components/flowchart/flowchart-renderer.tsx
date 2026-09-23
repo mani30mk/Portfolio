@@ -15,7 +15,9 @@ import {
   ZoomOut,
   RotateCcw,
   Layers,
-  ChevronDown
+  ChevronDown,
+  Lock,
+  Unlock
 } from "lucide-react"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -447,6 +449,7 @@ export function FlowchartRenderer({ data }: { data: FlowchartData }) {
   const [isPanning, setIsPanning] = useState(false)
   const [panStart, setPanStart] = useState({ x: 0, y: 0 })
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const [isLocked, setIsLocked] = useState(false)
 
   // Layout calculations
   const { nodeMap, routedEdges, canvasWidth, canvasHeight } = useMemo(() => {
@@ -469,16 +472,24 @@ export function FlowchartRenderer({ data }: { data: FlowchartData }) {
 
   const highlightedIds = hoveredNodeId ? getConnectedNodeIds(hoveredNodeId) : new Set<string>()
 
-  // Zoom controls
-  const zoomIn = () => setScale(s => Math.min(s + 0.15, 2.2))
-  const zoomOut = () => setScale(s => Math.max(s - 0.15, 0.4))
+  // Zoom controls (locked when isLocked is true)
+  const zoomIn = () => {
+    if (isLocked) return
+    setScale(s => Math.min(s + 0.15, 2.2))
+  }
+  const zoomOut = () => {
+    if (isLocked) return
+    setScale(s => Math.max(s - 0.15, 0.4))
+  }
   const resetView = () => {
+    if (isLocked) return
     setScale(1)
     setTranslate({ x: 0, y: 0 })
   }
 
-  // Pan controls
+  // Pan controls (locked when isLocked is true)
   const handleMouseDown = (e: React.MouseEvent) => {
+    if (isLocked) return
     if (e.button === 0) {
       setIsPanning(true)
       setPanStart({ x: e.clientX - translate.x, y: e.clientY - translate.y })
@@ -486,21 +497,21 @@ export function FlowchartRenderer({ data }: { data: FlowchartData }) {
   }
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (isPanning) {
-      setTranslate({
-        x: e.clientX - panStart.x,
-        y: e.clientY - panStart.y
-      })
-    }
+    if (isLocked || !isPanning) return
+    setTranslate({
+      x: e.clientX - panStart.x,
+      y: e.clientY - panStart.y
+    })
   }
 
   const handleMouseUp = () => setIsPanning(false)
 
   const handleWheel = useCallback((e: WheelEvent) => {
+    if (isLocked) return
     e.preventDefault()
     const delta = e.deltaY > 0 ? -0.06 : 0.06
     setScale(s => Math.max(0.4, Math.min(2.2, s + delta)))
-  }, [])
+  }, [isLocked])
 
   useEffect(() => {
     const container = containerRef.current
@@ -543,10 +554,29 @@ export function FlowchartRenderer({ data }: { data: FlowchartData }) {
         </div>
 
         <div className="flex items-center gap-1">
+          {/* Lock In / Zoom Lock Button */}
+          <button
+            onClick={() => setIsLocked(!isLocked)}
+            className={`font-mono text-xs border px-2.5 py-1 mr-1 transition-colors flex items-center gap-1.5 cursor-pointer ${
+              isLocked
+                ? "bg-foreground text-background border-foreground font-bold shadow-sm"
+                : "border-foreground/30 text-muted-foreground hover:bg-foreground hover:text-background"
+            }`}
+            title={isLocked ? "Controls are locked. Click to unlock zoom & pan" : "Lock zoom and pan"}
+          >
+            {isLocked ? <Lock className="h-3 w-3" /> : <Unlock className="h-3 w-3" />}
+            <span>{isLocked ? "locked" : "lock"}</span>
+          </button>
+
           <button
             onClick={zoomOut}
-            className="font-mono text-xs border border-foreground/30 px-2 py-1 hover:bg-foreground hover:text-background transition-colors"
-            title="Zoom out"
+            disabled={isLocked}
+            className={`font-mono text-xs border border-foreground/30 px-2 py-1 transition-colors ${
+              isLocked
+                ? "opacity-30 cursor-not-allowed"
+                : "hover:bg-foreground hover:text-background cursor-pointer"
+            }`}
+            title={isLocked ? "Zoom is locked" : "Zoom out"}
           >
             <ZoomOut className="h-3 w-3" />
           </button>
@@ -555,22 +585,32 @@ export function FlowchartRenderer({ data }: { data: FlowchartData }) {
           </span>
           <button
             onClick={zoomIn}
-            className="font-mono text-xs border border-foreground/30 px-2 py-1 hover:bg-foreground hover:text-background transition-colors"
-            title="Zoom in"
+            disabled={isLocked}
+            className={`font-mono text-xs border border-foreground/30 px-2 py-1 transition-colors ${
+              isLocked
+                ? "opacity-30 cursor-not-allowed"
+                : "hover:bg-foreground hover:text-background cursor-pointer"
+            }`}
+            title={isLocked ? "Zoom is locked" : "Zoom in"}
           >
             <ZoomIn className="h-3 w-3" />
           </button>
           <button
             onClick={resetView}
-            className="font-mono text-xs border border-foreground/30 px-2.5 py-1 ml-1 hover:bg-foreground hover:text-background transition-colors flex items-center gap-1"
-            title="Reset position"
+            disabled={isLocked}
+            className={`font-mono text-xs border border-foreground/30 px-2.5 py-1 ml-1 transition-colors flex items-center gap-1 ${
+              isLocked
+                ? "opacity-30 cursor-not-allowed"
+                : "hover:bg-foreground hover:text-background cursor-pointer"
+            }`}
+            title={isLocked ? "Position is locked" : "Reset position"}
           >
             <RotateCcw className="h-3 w-3" />
             <span className="hidden sm:inline">reset</span>
           </button>
           <button
             onClick={toggleFullscreen}
-            className="font-mono text-xs border border-foreground/30 px-2.5 py-1 ml-1 hover:bg-foreground hover:text-background transition-colors flex items-center gap-1"
+            className="font-mono text-xs border border-foreground/30 px-2.5 py-1 ml-1 hover:bg-foreground hover:text-background transition-colors flex items-center gap-1 cursor-pointer"
             title="Fullscreen"
           >
             {isFullscreen ? <Minimize2 className="h-3 w-3" /> : <Maximize2 className="h-3 w-3" />}
@@ -581,7 +621,9 @@ export function FlowchartRenderer({ data }: { data: FlowchartData }) {
 
       {/* ── Canvas Viewport ── */}
       <div
-        className="relative overflow-hidden bg-background cursor-grab active:cursor-grabbing"
+        className={`relative overflow-hidden bg-background ${
+          isLocked ? "cursor-default" : "cursor-grab active:cursor-grabbing"
+        }`}
         style={{ minHeight: "520px", height: isFullscreen ? "100vh" : "72vh" }}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
