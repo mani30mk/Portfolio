@@ -18,6 +18,7 @@ interface ProjectItemProps {
     onUpdateVideoURL: (name: string, value: string) => void
     onUpdateDisplayOrder: (name: string, value: number) => void
     onImageUpload: (name: string, file: File) => void
+    onUpdateFlowchartData?: (name: string, value: string) => void
 }
 
 export const ProjectItem = memo(function ProjectItem({
@@ -30,6 +31,7 @@ export const ProjectItem = memo(function ProjectItem({
     onUpdateVideoURL,
     onUpdateDisplayOrder,
     onImageUpload,
+    onUpdateFlowchartData,
 }: ProjectItemProps) {
     return (
         <div
@@ -145,6 +147,49 @@ export const ProjectItem = memo(function ProjectItem({
                                     min={0}
                                 />
                             </div>
+
+                            {onUpdateFlowchartData && (
+                                <div className="grid gap-2">
+                                    <div className="flex items-center justify-between">
+                                        <label className="font-mono text-xs uppercase text-muted-foreground">
+                                            Flowchart Data (JSON)
+                                        </label>
+                                        {settings?.flowchart_data && (
+                                            <span className={`font-mono text-xs px-2 py-0.5 ${
+                                                (() => {
+                                                    try {
+                                                        JSON.parse(settings.flowchart_data);
+                                                        return "text-green-600 border border-green-600/30";
+                                                    } catch {
+                                                        return "text-red-500 border border-red-500/30";
+                                                    }
+                                                })()
+                                            }`}>
+                                                {(() => {
+                                                    try {
+                                                        JSON.parse(settings.flowchart_data);
+                                                        return "✅ Valid JSON";
+                                                    } catch {
+                                                        return "❌ Invalid JSON";
+                                                    }
+                                                })()}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <textarea
+                                        value={settings?.flowchart_data ?? ""}
+                                        onChange={(e) =>
+                                            onUpdateFlowchartData(repo.name, e.target.value)
+                                        }
+                                        placeholder='[{"title":"Architecture","nodes":[...],"edges":[...]}]'
+                                        className="font-mono text-xs w-full min-h-[120px] p-3 border border-border bg-background resize-y focus:outline-none focus:border-foreground transition-colors"
+                                        spellCheck={false}
+                                    />
+                                    <p className="font-mono text-[10px] text-muted-foreground">
+                                        Paste a JSON array of flowchart definitions. Each object needs: title, nodes[], edges[]
+                                    </p>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>

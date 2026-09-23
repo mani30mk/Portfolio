@@ -41,6 +41,7 @@ interface ProjectSettings {
   custom_description: string | null
   image_url: string | null
   video_url: string | null
+  flowchart_data: string | null
   display_order: number
 }
 
@@ -108,6 +109,7 @@ export default function AdminPage() {
             custom_description: p.description,
             image_url: p.imageUrl,
             video_url: p.demoVideoUrl || null,
+            flowchart_data: p.flowchartData || null,
             display_order: p.displayOrder || 0
           }))
         }
@@ -128,6 +130,7 @@ export default function AdminPage() {
               custom_description: null,
               image_url: null,
               video_url: null,
+              flowchart_data: null,
               display_order: index,
             })
           }
@@ -244,6 +247,17 @@ export default function AdminPage() {
     })
   }
 
+  function updateFlowchartData(repoName: string, data: string) {
+    setProjectSettings((prev) => {
+      const newSettings = new Map(prev)
+      const settings = newSettings.get(repoName)
+      if (settings) {
+        newSettings.set(repoName, { ...settings, flowchart_data: data || null })
+      }
+      return newSettings
+    })
+  }
+
   async function saveProjectSettings() {
     setSaving(true)
     try {
@@ -255,6 +269,7 @@ export default function AdminPage() {
           description: settings.custom_description || repo?.description || "No description",
           imageUrl: settings.image_url || null,
           demoVideoUrl: settings.video_url || null,
+          flowchartData: settings.flowchart_data || null,
           technologies: repo?.topics || [], // Map topics to technologies
           githubUrl: repo?.html_url,
           githubRepoName: settings.github_repo_name,
@@ -555,6 +570,7 @@ export default function AdminPage() {
                       onUpdateVideoURL={updateVideoURL}
                       onUpdateDisplayOrder={updateDisplayOrder}
                       onImageUpload={handleImageUpload}
+                      onUpdateFlowchartData={updateFlowchartData}
                     />
                   )
                 })}

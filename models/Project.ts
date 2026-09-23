@@ -33,6 +33,11 @@ const ProjectSchema = new mongoose.Schema({
         type: String,
         // Optional: Cloudinary or external video URL for project demo
     },
+    flowchartData: {
+        type: String,
+        // Optional: JSON string containing an array of flowchart definitions
+        // Each flowchart: { title, direction, nodes[], edges[], subgraphs[] }
+    },
     isVisible: {
         type: Boolean,
         default: false,

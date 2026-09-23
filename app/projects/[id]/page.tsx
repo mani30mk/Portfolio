@@ -3,7 +3,7 @@
 import { useEffect, useState, use } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { ArrowLeft, Github, ExternalLink, Star, GitFork, Calendar, Terminal, Play } from "lucide-react"
+import { ArrowLeft, Github, ExternalLink, GitBranch, Calendar, Terminal, Play, Globe } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 interface ProjectData {
@@ -16,6 +16,7 @@ interface ProjectData {
   githubUrl?: string
   githubRepoName?: string
   demoVideoUrl?: string
+  flowchartData?: string
   isVisible: boolean
   displayOrder: number
   createdAt: string
@@ -216,24 +217,59 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         {/* Stats Row */}
         <section className="mb-12">
           <div className="grid grid-cols-1 sm:grid-cols-3 border border-foreground">
-            <div className="flex flex-col items-center justify-center py-6 px-4 border-b sm:border-b-0 sm:border-r border-foreground">
-              <Star className="h-5 w-5 text-muted-foreground mb-2" />
-              <span className="font-mono text-2xl font-bold text-foreground">
-                {project.githubRepoName ? "★" : "—"}
-              </span>
-              <span className="font-mono text-xs text-muted-foreground uppercase tracking-wider mt-1">
-                Open Source
-              </span>
-            </div>
-            <div className="flex flex-col items-center justify-center py-6 px-4 border-b sm:border-b-0 sm:border-r border-foreground">
-              <GitFork className="h-5 w-5 text-muted-foreground mb-2" />
-              <span className="font-mono text-2xl font-bold text-foreground">
-                {project.technologies?.length || 0}
-              </span>
-              <span className="font-mono text-xs text-muted-foreground uppercase tracking-wider mt-1">
-                Technologies
-              </span>
-            </div>
+            {/* LIVE Button */}
+            {project.link ? (
+              <a
+                href={project.link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex flex-col items-center justify-center py-6 px-4 border-b sm:border-b-0 sm:border-r border-foreground hover:bg-foreground hover:text-background transition-colors cursor-pointer group"
+              >
+                <Globe className="h-5 w-5 text-muted-foreground mb-2 group-hover:text-background transition-colors" />
+                <span className="font-mono text-lg font-bold text-foreground group-hover:text-background transition-colors">
+                  LIVE
+                </span>
+                <span className="font-mono text-xs text-muted-foreground uppercase tracking-wider mt-1 group-hover:text-background/70 transition-colors">
+                  View Deployed
+                </span>
+              </a>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-6 px-4 border-b sm:border-b-0 sm:border-r border-foreground opacity-40 cursor-not-allowed">
+                <Globe className="h-5 w-5 text-muted-foreground mb-2" />
+                <span className="font-mono text-lg font-bold text-foreground">
+                  —
+                </span>
+                <span className="font-mono text-xs text-muted-foreground uppercase tracking-wider mt-1">
+                  Not Deployed
+                </span>
+              </div>
+            )}
+            {/* FLOWCHART Button */}
+            {project.flowchartData ? (
+              <Link
+                href={`/projects/${project._id}/flowchart`}
+                className="flex flex-col items-center justify-center py-6 px-4 border-b sm:border-b-0 sm:border-r border-foreground hover:bg-foreground hover:text-background transition-colors cursor-pointer group"
+              >
+                <GitBranch className="h-5 w-5 text-muted-foreground mb-2 group-hover:text-background transition-colors" />
+                <span className="font-mono text-lg font-bold text-foreground group-hover:text-background transition-colors">
+                  FLOWCHART
+                </span>
+                <span className="font-mono text-xs text-muted-foreground uppercase tracking-wider mt-1 group-hover:text-background/70 transition-colors">
+                  View Architecture
+                </span>
+              </Link>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-6 px-4 border-b sm:border-b-0 sm:border-r border-foreground opacity-40 cursor-not-allowed">
+                <GitBranch className="h-5 w-5 text-muted-foreground mb-2" />
+                <span className="font-mono text-lg font-bold text-foreground">
+                  —
+                </span>
+                <span className="font-mono text-xs text-muted-foreground uppercase tracking-wider mt-1">
+                  No Flowchart
+                </span>
+              </div>
+            )}
+            {/* Created Card — UNCHANGED */}
             <div className="flex flex-col items-center justify-center py-6 px-4">
               <Calendar className="h-5 w-5 text-muted-foreground mb-2" />
               <span className="font-mono text-sm font-bold text-foreground">
