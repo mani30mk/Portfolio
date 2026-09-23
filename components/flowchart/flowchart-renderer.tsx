@@ -54,13 +54,13 @@ export interface FlowchartData {
 
 // ─── Geometry Constants ──────────────────────────────────────────────────────
 
-const NODE_WIDTH = 240
-const NODE_HEIGHT = 76
-const ROW_GAP = 120 // Ample space for orthogonal lines & labels
-const COL_GAP = 90
+const NODE_WIDTH = 250
+const NODE_HEIGHT = 80
+const ROW_GAP = 160 // Ample space for multi-lane orthogonal lines & non-overlapping labels
+const COL_GAP = 100
 const CANVAS_PADDING = 80
 
-// ─── Layout Engine ───────────────────────────────────────────────────────────
+// ─── Layout & Collision Engine ───────────────────────────────────────────────
 
 interface PositionedNode extends FlowchartNode {
   x: number
@@ -73,14 +73,86 @@ interface RoutedEdge {
   from: string
   to: string
   label?: string
+  lines: string[]
+  labelWidth: number
+  labelHeight: number
   path: string
   labelPos: { x: number; y: number }
   isBackward: boolean
 }
 
+interface BoundingBox {
+  x: number // center x
+  y: number // center y
+  width: number
+  height: number
+}
+
+function checkCollision(b1: BoundingBox, b2: BoundingBox, padX = 14, padY = 10): boolean {
+  return (
+    Math.abs(b1.x - b2.x) < (b1.width + b2.width) / 2 + padX &&
+    Math.abs(b1.y - b2.y) < (b1.height + b2.height) / 2 + padY
+  )
+}
+
+/**
+ * Splits long descriptive labels (especially with parentheses) into compact 2-line badges.
+ * This cuts label width in half (e.g. from 260px down to ~130px), eliminating horizontal collisions.
+ */
+function formatLabel(label?: string): { lines: string[]; width: number; height: number } {
+  if (!label) return { lines: [], width: 0, height: 0 }
+
+  const trimmed = label.trim()
+
+  // Case 1: Parentheses present e.g. "Extract & Split (1000 chars / 200 overlap)"
+  const parenMatch = trimmed.match(/^(.*?)\s*(\([^(]+\))\s*$/)
+  if (parenMatch && parenMatch[1].length > 0) {
+    const l1 = parenMatch[1].trim()
+    const l2 = parenMatch[2].trim()
+    const maxLen = Math.max(l1.length, l2.length)
+    return {
+      lines: [l1, l2],
+      width: Math.min(230, Math.max(80, Math.round(maxLen * 6.5) + 20)),
+      height: 32
+    }
+  }
+
+  // Case 2: Long label without parens (> 24 chars) - split at dash, slash, or middle space
+  if (trimmed.length > 24) {
+    let splitIdx = trimmed.indexOf(" - ")
+    let separatorLen = 3
+    if (splitIdx < 0) {
+      splitIdx = trimmed.indexOf(" / ")
+      separatorLen = 3
+    }
+    if (splitIdx < 0) {
+      splitIdx = trimmed.lastIndexOf(" ", Math.ceil(trimmed.length / 2))
+      separatorLen = 1
+    }
+
+    if (splitIdx > 6 && splitIdx < trimmed.length - 6) {
+      const l1 = trimmed.slice(0, splitIdx).trim()
+      const l2 = trimmed.slice(splitIdx + separatorLen).trim()
+      const maxLen = Math.max(l1.length, l2.length)
+      return {
+        lines: [l1, l2],
+        width: Math.min(230, Math.max(80, Math.round(maxLen * 6.5) + 20)),
+        height: 32
+      }
+    }
+  }
+
+  // Case 3: Compact single-line label
+  return {
+    lines: [trimmed],
+    width: Math.min(250, Math.max(64, Math.round(trimmed.length * 6.8) + 18)),
+    height: 20
+  }
+}
+
 /**
  * Intelligent tiered layer assignment that handles cycles, feedback loops,
- * and user-specified row/col overrides.
+ * and anti-collision orthogonal edge label placement.
  */
 function computeLayout(nodes: FlowchartNode[], edges: FlowchartEdge[]): {
   nodeMap: Map<string, PositionedNode>
@@ -254,12 +326,21 @@ function computeLayout(nodes: FlowchartNode[], edges: FlowchartEdge[]): {
     })
   })
 
-  const canvasWidth = maxRowWidth + CANVAS_PADDING * 2 + 100
+  const canvasWidth = maxRowWidth + CANVAS_PADDING * 2 + 120
   const canvasHeight = sortedRowKeys.length * (NODE_HEIGHT + ROW_GAP) + CANVAS_PADDING * 2
 
-  // 6. Compute Orthogonal (Rectangular) Edge Routing
+  // 6. Compute Orthogonal Edge Routing with Anti-Collision Label Placement
   const routedEdges: RoutedEdge[] = []
   const edgeCountBetween = new Map<string, number>()
+
+  // Keep track of placed bounding boxes to actively prevent overlaps
+  const nodeBoxes: BoundingBox[] = Array.from(nodeMap.values()).map(n => ({
+    x: n.x + NODE_WIDTH / 2,
+    y: n.y + NODE_HEIGHT / 2,
+    width: NODE_WIDTH,
+    height: NODE_HEIGHT
+  }))
+  const placedLabelBoxes: BoundingBox[] = []
 
   validEdges.forEach((e) => {
     const fromNode = nodeMap.get(e.from)
@@ -274,11 +355,11 @@ function computeLayout(nodes: FlowchartNode[], edges: FlowchartEdge[]): {
     const isBackward = fromNode.row > toNode.row || backwardEdges.has(`${e.from}->${e.to}`)
 
     let path = ""
-    let labelPos = { x: 0, y: 0 }
+    const { lines, width: labelWidth, height: labelHeight } = formatLabel(e.label)
+    const candidates: { x: number; y: number }[] = []
 
     if (isBackward) {
       // ── Backward / Feedback loop: Route around the perimeter ──
-      // Exit right edge of fromNode, go to right gutter, go up, enter right edge of toNode
       const gutterX = CANVAS_PADDING + maxRowWidth + 40 + offset
       const startX = fromNode.x + NODE_WIDTH
       const startY = fromNode.y + NODE_HEIGHT / 2
@@ -286,49 +367,126 @@ function computeLayout(nodes: FlowchartNode[], edges: FlowchartEdge[]): {
       const endY = toNode.y + NODE_HEIGHT / 2
 
       path = `M ${startX} ${startY} L ${gutterX} ${startY} L ${gutterX} ${endY} L ${endX} ${endY}`
-      labelPos = { x: gutterX + 10, y: (startY + endY) / 2 }
+
+      const labelCenterX = gutterX + labelWidth / 2 + 12
+      candidates.push(
+        { x: labelCenterX, y: (startY + endY) / 2 },
+        { x: labelCenterX, y: (startY + endY) / 2 - 32 },
+        { x: labelCenterX, y: (startY + endY) / 2 + 32 },
+        { x: labelCenterX, y: startY },
+        { x: labelCenterX, y: endY }
+      )
     } else if (fromNode.row === toNode.row) {
       // ── Same row: Horizontal direct route ──
-      if (fromNode.x < toNode.x) {
-        const startX = fromNode.x + NODE_WIDTH
-        const startY = fromNode.y + NODE_HEIGHT / 2
-        const endX = toNode.x
-        const endY = toNode.y + NODE_HEIGHT / 2
-        path = `M ${startX} ${startY} L ${endX} ${endY}`
-        labelPos = { x: (startX + endX) / 2, y: startY - 12 }
-      } else {
-        const startX = fromNode.x
-        const startY = fromNode.y + NODE_HEIGHT / 2
-        const endX = toNode.x + NODE_WIDTH
-        const endY = toNode.y + NODE_HEIGHT / 2
-        path = `M ${startX} ${startY} L ${endX} ${endY}`
-        labelPos = { x: (startX + endX) / 2, y: startY - 12 }
-      }
+      const isLeftToRight = fromNode.x < toNode.x
+      const startX = isLeftToRight ? fromNode.x + NODE_WIDTH : fromNode.x
+      const startY = fromNode.y + NODE_HEIGHT / 2
+      const endX = isLeftToRight ? toNode.x : toNode.x + NODE_WIDTH
+      const endY = toNode.y + NODE_HEIGHT / 2
+      path = `M ${startX} ${startY} L ${endX} ${endY}`
+
+      const midX = (startX + endX) / 2
+      candidates.push(
+        { x: midX, y: startY - 18 },
+        { x: midX, y: startY + 18 },
+        { x: midX, y: startY - 36 },
+        { x: midX, y: startY + 36 }
+      )
     } else {
       // ── Forward vertical tiered route (Clean 90° Orthogonal Step) ──
       const startX = fromNode.x + NODE_WIDTH / 2 + offset
       const startY = fromNode.y + NODE_HEIGHT
       const endX = toNode.x + NODE_WIDTH / 2 + offset
       const endY = toNode.y
+      const midY = (startY + endY) / 2
+      const midX = (startX + endX) / 2
 
-      // If directly vertically aligned
       if (Math.abs(startX - endX) < 4) {
         path = `M ${startX} ${startY} L ${endX} ${endY}`
-        labelPos = { x: startX, y: (startY + endY) / 2 }
       } else {
-        // Orthogonal step: Down to midpoint, horizontal to target X, down into target top
-        const midY = (startY + endY) / 2
         path = `M ${startX} ${startY} L ${startX} ${midY} L ${endX} ${midY} L ${endX} ${endY}`
-        labelPos = { x: (startX + endX) / 2, y: midY }
       }
+
+      // Generate staggered candidates along the horizontal step and vertical segments
+      candidates.push(
+        // Primary candidate: along horizontal step
+        { x: midX, y: midY },
+        // Staggered vertical lanes (prevents horizontal collision between multiple edges)
+        { x: midX, y: midY - 26 },
+        { x: midX, y: midY + 26 },
+        // Staggered along horizontal line towards source or target
+        { x: startX * 0.7 + endX * 0.3, y: midY },
+        { x: startX * 0.3 + endX * 0.7, y: midY },
+        { x: startX * 0.7 + endX * 0.3, y: midY - 26 },
+        { x: startX * 0.3 + endX * 0.7, y: midY + 26 },
+        // Upper vertical segment lane (near source bottom)
+        { x: startX, y: startY + 34 },
+        // Lower vertical segment lane (near target top)
+        { x: endX, y: endY - 34 },
+        // Extreme vertical offsets for dense multi-edge graphs
+        { x: midX, y: midY - 48 },
+        { x: midX, y: midY + 48 }
+      )
+    }
+
+    // ── Collision Avoidance Selection ──
+    let bestPos = candidates[0] || { x: 0, y: 0 }
+
+    if (lines.length > 0) {
+      let minScore = Infinity
+
+      for (const cand of candidates) {
+        const testBox: BoundingBox = {
+          x: cand.x,
+          y: cand.y,
+          width: labelWidth,
+          height: labelHeight
+        }
+
+        let score = 0
+
+        // Strict avoidance of node cards
+        for (const nb of nodeBoxes) {
+          if (checkCollision(testBox, nb, 10, 10)) {
+            score += 100
+          }
+        }
+
+        // Avoidance of previously placed labels
+        for (const pb of placedLabelBoxes) {
+          if (checkCollision(testBox, pb, 16, 12)) {
+            score += 10
+          }
+        }
+
+        if (score === 0) {
+          bestPos = cand
+          break
+        }
+
+        if (score < minScore) {
+          minScore = score
+          bestPos = cand
+        }
+      }
+
+      placedLabelBoxes.push({
+        x: bestPos.x,
+        y: bestPos.y,
+        width: labelWidth,
+        height: labelHeight
+      })
     }
 
     routedEdges.push({
       from: e.from,
       to: e.to,
       label: e.label,
+      lines,
+      labelWidth,
+      labelHeight,
       path,
-      labelPos,
+      labelPos: bestPos,
       isBackward
     })
   })
@@ -771,7 +929,7 @@ export function FlowchartRenderer({ data }: { data: FlowchartData }) {
               )
             })}
 
-            {/* Routed Orthogonal Edges */}
+            {/* 1. Render all orthogonal edge paths first */}
             {routedEdges.map((edge, i) => {
               const isEdgeHighlighted =
                 hoveredNodeId !== null &&
@@ -779,12 +937,8 @@ export function FlowchartRenderer({ data }: { data: FlowchartData }) {
 
               const isEdgeDimmed = hoveredNodeId !== null && !isEdgeHighlighted
 
-              // Label width estimate
-              const labelText = edge.label || ""
-              const labelWidth = labelText.length * 6.5 + 16
-
               return (
-                <g key={`edge-${i}`} className="transition-opacity duration-200">
+                <g key={`edge-path-${i}`} className="transition-opacity duration-200">
                   {/* Orthogonal connector line */}
                   <path
                     d={edge.path}
@@ -823,43 +977,139 @@ export function FlowchartRenderer({ data }: { data: FlowchartData }) {
                       />
                     </path>
                   )}
+                </g>
+              )
+            })}
 
-                  {/* Opaque Edge Label Pill (Prevents text collisions) */}
-                  {labelText && (
-                    <g transform={`translate(${edge.labelPos.x}, ${edge.labelPos.y})`}>
-                      {/* Background pill rectangle */}
-                      <rect
-                        x={-labelWidth / 2}
-                        y={-10}
-                        width={labelWidth}
-                        height={20}
-                        rx={3}
-                        className={`transition-all duration-200 ${
-                          isEdgeHighlighted
-                            ? "fill-foreground stroke-foreground"
-                            : isEdgeDimmed
-                              ? "fill-background stroke-border/30 opacity-20"
-                              : "fill-background stroke-border"
-                        }`}
-                        strokeWidth={1}
-                      />
-                      {/* Label Text */}
+            {/* 2. Render all non-hovered edge label pills (anti-collision placed) */}
+            {routedEdges.map((edge, i) => {
+              if (edge.lines.length === 0) return null
+              const isEdgeHighlighted =
+                hoveredNodeId !== null &&
+                (edge.from === hoveredNodeId || edge.to === hoveredNodeId)
+              if (isEdgeHighlighted) return null // Rendered on top in step 3
+
+              const isEdgeDimmed = hoveredNodeId !== null && !isEdgeHighlighted
+
+              return (
+                <g
+                  key={`edge-label-${i}`}
+                  transform={`translate(${edge.labelPos.x}, ${edge.labelPos.y})`}
+                  className="cursor-pointer pointer-events-auto transition-opacity duration-200"
+                  onMouseEnter={() => setHoveredNodeId(edge.from)}
+                  onMouseLeave={() => setHoveredNodeId(null)}
+                >
+                  <rect
+                    x={-edge.labelWidth / 2}
+                    y={-edge.labelHeight / 2}
+                    width={edge.labelWidth}
+                    height={edge.labelHeight}
+                    rx={4}
+                    className={`transition-all duration-200 ${
+                      isEdgeDimmed
+                        ? "fill-background stroke-border/20 opacity-30"
+                        : "fill-background stroke-border/70 shadow-sm"
+                    }`}
+                    strokeWidth={1}
+                  />
+
+                  {edge.lines.length === 1 ? (
+                    <text
+                      x={0}
+                      y={3.5}
+                      textAnchor="middle"
+                      className={`font-mono text-[9px] font-medium select-none transition-colors ${
+                        isEdgeDimmed ? "fill-muted-foreground/30" : "fill-foreground/80"
+                      }`}
+                      fontFamily="monospace"
+                    >
+                      {edge.lines[0]}
+                    </text>
+                  ) : (
+                    <>
                       <text
                         x={0}
-                        y={3.5}
+                        y={-3}
                         textAnchor="middle"
-                        className={`font-mono text-[9px] font-medium transition-colors select-none ${
-                          isEdgeHighlighted
-                            ? "fill-background font-bold"
-                            : isEdgeDimmed
-                              ? "fill-muted-foreground/30"
-                              : "fill-foreground/80"
+                        className={`font-mono text-[9px] font-semibold select-none transition-colors ${
+                          isEdgeDimmed ? "fill-muted-foreground/30" : "fill-foreground/90"
                         }`}
                         fontFamily="monospace"
                       >
-                        {labelText}
+                        {edge.lines[0]}
                       </text>
-                    </g>
+                      <text
+                        x={0}
+                        y={9}
+                        textAnchor="middle"
+                        className={`font-mono text-[8px] select-none transition-colors ${
+                          isEdgeDimmed ? "fill-muted-foreground/20" : "fill-muted-foreground"
+                        }`}
+                        fontFamily="monospace"
+                      >
+                        {edge.lines[1]}
+                      </text>
+                    </>
+                  )}
+                </g>
+              )
+            })}
+
+            {/* 3. Render highlighted edge's label pill on top of everything */}
+            {routedEdges.map((edge, i) => {
+              if (edge.lines.length === 0) return null
+              const isEdgeHighlighted =
+                hoveredNodeId !== null &&
+                (edge.from === hoveredNodeId || edge.to === hoveredNodeId)
+              if (!isEdgeHighlighted) return null
+
+              return (
+                <g
+                  key={`edge-label-active-${i}`}
+                  transform={`translate(${edge.labelPos.x}, ${edge.labelPos.y})`}
+                  className="cursor-pointer pointer-events-auto"
+                >
+                  <rect
+                    x={-edge.labelWidth / 2}
+                    y={-edge.labelHeight / 2}
+                    width={edge.labelWidth}
+                    height={edge.labelHeight}
+                    rx={4}
+                    className="fill-foreground stroke-foreground shadow-md"
+                    strokeWidth={1.5}
+                  />
+
+                  {edge.lines.length === 1 ? (
+                    <text
+                      x={0}
+                      y={3.5}
+                      textAnchor="middle"
+                      className="font-mono text-[9px] font-bold select-none fill-background"
+                      fontFamily="monospace"
+                    >
+                      {edge.lines[0]}
+                    </text>
+                  ) : (
+                    <>
+                      <text
+                        x={0}
+                        y={-3}
+                        textAnchor="middle"
+                        className="font-mono text-[9px] font-bold select-none fill-background"
+                        fontFamily="monospace"
+                      >
+                        {edge.lines[0]}
+                      </text>
+                      <text
+                        x={0}
+                        y={9}
+                        textAnchor="middle"
+                        className="font-mono text-[8px] select-none fill-background/90"
+                        fontFamily="monospace"
+                      >
+                        {edge.lines[1]}
+                      </text>
+                    </>
                   )}
                 </g>
               )
