@@ -442,6 +442,7 @@ function StandardNodeCard({
 
 export function FlowchartRenderer({ data }: { data: FlowchartData }) {
   const containerRef = useRef<HTMLDivElement>(null)
+  const viewportRef = useRef<HTMLDivElement>(null)
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null)
   const [scale, setScale] = useState(1)
@@ -455,6 +456,28 @@ export function FlowchartRenderer({ data }: { data: FlowchartData }) {
   const { nodeMap, routedEdges, canvasWidth, canvasHeight } = useMemo(() => {
     return computeLayout(data.nodes, data.edges)
   }, [data.nodes, data.edges])
+
+  // Center diagram in viewport helper
+  const centerDiagram = useCallback((targetScale?: number) => {
+    const viewport = viewportRef.current
+    if (!viewport) return
+
+    const vw = viewport.clientWidth || 900
+    const vh = viewport.clientHeight || 560
+
+    // Compute fit scale if targetScale is not provided
+    const fitScale = targetScale ?? Math.min(1, Math.max(0.65, (vw - 80) / canvasWidth))
+    const cx = Math.round((vw - canvasWidth * fitScale) / 2)
+    const cy = Math.max(30, Math.round((vh - canvasHeight * fitScale) / 2))
+
+    setScale(fitScale)
+    setTranslate({ x: cx, y: cy })
+  }, [canvasWidth, canvasHeight])
+
+  // Center on initial mount and whenever data / canvasWidth changes
+  useEffect(() => {
+    centerDiagram()
+  }, [centerDiagram])
 
   // Connected node IDs for high-contrast highlighting
   const getConnectedNodeIds = useCallback(
@@ -472,19 +495,45 @@ export function FlowchartRenderer({ data }: { data: FlowchartData }) {
 
   const highlightedIds = hoveredNodeId ? getConnectedNodeIds(hoveredNodeId) : new Set<string>()
 
-  // Zoom controls (locked when isLocked is true)
+  // Zoom anchored to a specific point (e.g. viewport center or mouse cursor)
+  // This mathematically prevents the diagram from drifting leftwards on zoom in/out!
+  const zoomAroundPoint = useCallback((newScale: number, anchorX: number, anchorY: number) => {
+    if (isLocked) return
+
+    setScale(oldScale => {
+      const clampedScale = Math.max(0.35, Math.min(2.2, newScale))
+      setTranslate(oldTranslate => {
+        // Find point in diagram coordinates under anchor:
+        const diagramX = (anchorX - oldTranslate.x) / oldScale
+        const diagramY = (anchorY - oldTranslate.y) / oldScale
+
+        return {
+          x: Math.round(anchorX - diagramX * clampedScale),
+          y: Math.round(anchorY - diagramY * clampedScale)
+        }
+      })
+      return clampedScale
+    })
+  }, [isLocked])
+
+  // Zoom controls (locked when isLocked is true; anchored to viewport center)
   const zoomIn = () => {
     if (isLocked) return
-    setScale(s => Math.min(s + 0.15, 2.2))
+    const vw = viewportRef.current?.clientWidth || 900
+    const vh = viewportRef.current?.clientHeight || 560
+    zoomAroundPoint(scale + 0.15, vw / 2, vh / 2)
   }
+
   const zoomOut = () => {
     if (isLocked) return
-    setScale(s => Math.max(s - 0.15, 0.4))
+    const vw = viewportRef.current?.clientWidth || 900
+    const vh = viewportRef.current?.clientHeight || 560
+    zoomAroundPoint(scale - 0.15, vw / 2, vh / 2)
   }
+
   const resetView = () => {
     if (isLocked) return
-    setScale(1)
-    setTranslate({ x: 0, y: 0 })
+    centerDiagram()
   }
 
   // Pan controls (locked when isLocked is true)
@@ -506,18 +555,27 @@ export function FlowchartRenderer({ data }: { data: FlowchartData }) {
 
   const handleMouseUp = () => setIsPanning(false)
 
+  // Wheel zoom anchored to current mouse pointer position
   const handleWheel = useCallback((e: WheelEvent) => {
     if (isLocked) return
     e.preventDefault()
+
+    const viewport = viewportRef.current
+    if (!viewport) return
+
+    const rect = viewport.getBoundingClientRect()
+    const mouseX = e.clientX - rect.left
+    const mouseY = e.clientY - rect.top
     const delta = e.deltaY > 0 ? -0.06 : 0.06
-    setScale(s => Math.max(0.4, Math.min(2.2, s + delta)))
-  }, [isLocked])
+
+    zoomAroundPoint(scale + delta, mouseX, mouseY)
+  }, [isLocked, scale, zoomAroundPoint])
 
   useEffect(() => {
-    const container = containerRef.current
-    if (container) {
-      container.addEventListener("wheel", handleWheel, { passive: false })
-      return () => container.removeEventListener("wheel", handleWheel)
+    const vp = viewportRef.current
+    if (vp) {
+      vp.addEventListener("wheel", handleWheel, { passive: false })
+      return () => vp.removeEventListener("wheel", handleWheel)
     }
   }, [handleWheel])
 
@@ -621,6 +679,7 @@ export function FlowchartRenderer({ data }: { data: FlowchartData }) {
 
       {/* ── Canvas Viewport ── */}
       <div
+        ref={viewportRef}
         className={`relative overflow-hidden bg-background ${
           isLocked ? "cursor-default" : "cursor-grab active:cursor-grabbing"
         }`}
