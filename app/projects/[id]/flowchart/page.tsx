@@ -160,25 +160,40 @@ export default function FlowchartPage({ params }: { params: Promise<{ id: string
           </p>
         </div>
 
-        {/* Tab Selector — Only show if multiple flowcharts */}
+        {/* Multi-Diagram Tab Selector */}
         {flowcharts.length > 1 && (
-          <div className="mb-6 flex flex-wrap gap-0 border border-foreground inline-flex">
-            {flowcharts.map((fc, idx) => (
-              <button
-                key={idx}
-                onClick={() => setActiveIndex(idx)}
-                className={`font-mono text-xs px-4 py-2.5 transition-colors uppercase tracking-wider ${
-                  idx === activeIndex
-                    ? "bg-foreground text-background font-bold"
-                    : "text-muted-foreground hover:bg-foreground/10 hover:text-foreground"
-                } ${idx < flowcharts.length - 1 ? "border-r border-foreground" : ""}`}
-              >
-                <span className="flex items-center gap-1.5">
-                  <ChevronRight className={`h-3 w-3 transition-transform ${idx === activeIndex ? "rotate-90" : ""}`} />
-                  {fc.title || `Flowchart ${idx + 1}`}
-                </span>
-              </button>
-            ))}
+          <div className="mb-6">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                Select Architecture View ({flowcharts.length} Available):
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {flowcharts.map((fc, idx) => {
+                const isActive = idx === activeIndex
+                return (
+                  <button
+                    key={idx}
+                    onClick={() => setActiveIndex(idx)}
+                    className={`font-mono text-xs px-4 py-2 border transition-all flex items-center gap-2 cursor-pointer ${
+                      isActive
+                        ? "border-foreground bg-foreground text-background font-bold shadow-sm"
+                        : "border-border text-muted-foreground hover:border-foreground hover:text-foreground bg-background"
+                    }`}
+                  >
+                    <span className={`text-[10px] px-1 py-0.2 border ${
+                      isActive ? "border-background text-background" : "border-muted-foreground/40 text-muted-foreground"
+                    }`}>
+                      0{idx + 1}
+                    </span>
+                    <span>{fc.title || `Diagram ${idx + 1}`}</span>
+                    <span className={`text-[10px] ${isActive ? "text-background/70" : "text-muted-foreground/60"}`}>
+                      ({fc.nodes?.length || 0} nodes)
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
           </div>
         )}
 
@@ -186,25 +201,28 @@ export default function FlowchartPage({ params }: { params: Promise<{ id: string
         {activeFlowchart && (
           <div className="border border-foreground overflow-hidden">
             {/* Terminal Title Bar */}
-            <div className="flex items-center gap-2 px-4 py-3 bg-foreground border-b border-background/20">
-              <div className="flex gap-1.5">
-                <span className="w-3 h-3 rounded-full bg-background/30" />
-                <span className="w-3 h-3 rounded-full bg-background/20" />
-                <span className="w-3 h-3 rounded-full bg-background/10" />
+            <div className="flex items-center justify-between px-4 py-3 bg-foreground border-b border-background/20">
+              <div className="flex items-center gap-2">
+                <div className="flex gap-1.5">
+                  <span className="w-3 h-3 rounded-full bg-background/30" />
+                  <span className="w-3 h-3 rounded-full bg-background/20" />
+                  <span className="w-3 h-3 rounded-full bg-background/10" />
+                </div>
+                <span className="font-mono text-xs text-background/70 ml-2 flex items-center gap-2">
+                  <GitBranch className="h-3 w-3 text-background" />
+                  <strong className="text-background">{activeFlowchart.title || "flowchart"}</strong>.diagram
+                </span>
               </div>
-              <span className="font-mono text-xs text-background/50 ml-2 flex items-center gap-2">
-                <GitBranch className="h-3 w-3" />
-                {activeFlowchart.title || "flowchart"}.diagram
-                {flowcharts.length > 1 && (
-                  <span className="text-background/30 ml-1">
-                    [{activeIndex + 1}/{flowcharts.length}]
-                  </span>
-                )}
-              </span>
+
+              {flowcharts.length > 1 && (
+                <div className="font-mono text-[11px] text-background/60 flex items-center gap-2">
+                  <span>Diagram {activeIndex + 1} of {flowcharts.length}</span>
+                </div>
+              )}
             </div>
 
-            {/* Renderer */}
-            <FlowchartRenderer data={activeFlowchart} />
+            {/* Renderer with key to properly reset on tab switch */}
+            <FlowchartRenderer key={activeIndex} data={activeFlowchart} />
           </div>
         )}
 

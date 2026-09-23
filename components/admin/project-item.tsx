@@ -3,7 +3,7 @@ import { memo } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
-import { Eye, EyeOff, GripVertical } from "lucide-react"
+import { Eye, EyeOff, GripVertical, ExternalLink, Code2 } from "lucide-react"
 
 // Types need to be exported or redefined if not in a shared types file. 
 // For now redefining simpler versions for props.
@@ -16,6 +16,7 @@ interface ProjectItemProps {
     onUpdateDescription: (name: string, value: string) => void
     onUpdateImageURL: (name: string, value: string) => void
     onUpdateVideoURL: (name: string, value: string) => void
+    onUpdateLiveURL?: (name: string, value: string) => void
     onUpdateDisplayOrder: (name: string, value: number) => void
     onImageUpload: (name: string, file: File) => void
     onUpdateFlowchartData?: (name: string, value: string) => void
@@ -29,6 +30,7 @@ export const ProjectItem = memo(function ProjectItem({
     onUpdateDescription,
     onUpdateImageURL,
     onUpdateVideoURL,
+    onUpdateLiveURL,
     onUpdateDisplayOrder,
     onImageUpload,
     onUpdateFlowchartData,
@@ -133,6 +135,33 @@ export const ProjectItem = memo(function ProjectItem({
                                 )}
                             </div>
 
+                            <div className="grid gap-2">
+                                <label className="font-mono text-xs uppercase text-muted-foreground flex items-center justify-between">
+                                    <span>Live Deployed URL (optional)</span>
+                                    {settings?.live_url && (
+                                        <a
+                                            href={settings.live_url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-[10px] text-foreground underline hover:text-foreground/80 flex items-center gap-1"
+                                        >
+                                            Visit <ExternalLink className="h-2.5 w-2.5" />
+                                        </a>
+                                    )}
+                                </label>
+                                <Input
+                                    value={settings?.live_url ?? ""}
+                                    onChange={(e) => onUpdateLiveURL?.(repo.name, e.target.value)}
+                                    placeholder="https://yourproject.vercel.app"
+                                    className="font-mono text-sm"
+                                />
+                                {settings?.live_url && (
+                                    <p className="font-mono text-xs text-muted-foreground">
+                                        ✅ Live URL set: {settings.live_url}
+                                    </p>
+                                )}
+                            </div>
+
                             <div className="flex items-center gap-2">
                                 <label className="font-mono text-xs uppercase text-muted-foreground">
                                     Display Order:
@@ -151,43 +180,137 @@ export const ProjectItem = memo(function ProjectItem({
                             {onUpdateFlowchartData && (
                                 <div className="grid gap-2">
                                     <div className="flex items-center justify-between">
-                                        <label className="font-mono text-xs uppercase text-muted-foreground">
+                                        <label className="font-mono text-xs uppercase text-muted-foreground flex items-center gap-2">
+                                            <Code2 className="h-3.5 w-3.5" />
                                             Flowchart Data (JSON)
                                         </label>
-                                        {settings?.flowchart_data && (
-                                            <span className={`font-mono text-xs px-2 py-0.5 ${
-                                                (() => {
-                                                    try {
-                                                        JSON.parse(settings.flowchart_data);
-                                                        return "text-green-600 border border-green-600/30";
-                                                    } catch {
-                                                        return "text-red-500 border border-red-500/30";
-                                                    }
-                                                })()
-                                            }`}>
-                                                {(() => {
-                                                    try {
-                                                        JSON.parse(settings.flowchart_data);
-                                                        return "✅ Valid JSON";
-                                                    } catch {
-                                                        return "❌ Invalid JSON";
-                                                    }
-                                                })()}
-                                            </span>
-                                        )}
+                                        <div className="flex items-center gap-2">
+                                            {settings?.flowchart_data && (
+                                                <span className={`font-mono text-xs px-2 py-0.5 ${
+                                                    (() => {
+                                                        try {
+                                                            const parsed = JSON.parse(settings.flowchart_data);
+                                                            const count = Array.isArray(parsed) ? parsed.length : 1;
+                                                            return "text-green-600 border border-green-600/30";
+                                                        } catch {
+                                                            return "text-red-500 border border-red-500/30";
+                                                        }
+                                                    })()
+                                                }`}>
+                                                    {(() => {
+                                                        try {
+                                                            const parsed = JSON.parse(settings.flowchart_data);
+                                                            const count = Array.isArray(parsed) ? parsed.length : 1;
+                                                            return `✅ Valid JSON (${count} diagram${count > 1 ? "s" : ""})`;
+                                                        } catch {
+                                                            return "❌ Invalid JSON";
+                                                        }
+                                                    })()}
+                                                </span>
+                                            )}
+                                            {settings?.flowchart_data && (
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="h-6 text-[10px] font-mono px-2"
+                                                    onClick={() => {
+                                                        try {
+                                                            const parsed = JSON.parse(settings.flowchart_data);
+                                                            onUpdateFlowchartData(repo.name, JSON.stringify(parsed, null, 2));
+                                                        } catch {
+                                                            alert("Invalid JSON cannot be formatted");
+                                                        }
+                                                    }}
+                                                >
+                                                    Prettify
+                                                </Button>
+                                            )}
+                                        </div>
                                     </div>
+
+                                    {/* Multi-chart summary if multiple charts */}
+                                    {(() => {
+                                        if (!settings?.flowchart_data) return null;
+                                        try {
+                                            const parsed = JSON.parse(settings.flowchart_data);
+                                            if (Array.isArray(parsed) && parsed.length > 1) {
+                                                return (
+                                                    <div className="bg-background/80 border border-foreground/20 p-2 text-[11px] font-mono space-y-1">
+                                                        <span className="text-muted-foreground uppercase text-[9px] tracking-wider block">
+                                                            Detected {parsed.length} diagrams (Tab Switcher will be enabled on flowchart page):
+                                                        </span>
+                                                        <div className="flex flex-wrap gap-2">
+                                                            {parsed.map((fc: any, i: number) => (
+                                                                <span key={i} className="border border-border px-1.5 py-0.5 bg-muted">
+                                                                    Tab {i + 1}: <strong>{fc.title || `Diagram ${i + 1}`}</strong> ({fc.nodes?.length || 0} nodes)
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            }
+                                        } catch {}
+                                        return null;
+                                    })()}
+
                                     <textarea
                                         value={settings?.flowchart_data ?? ""}
                                         onChange={(e) =>
                                             onUpdateFlowchartData(repo.name, e.target.value)
                                         }
                                         placeholder='[{"title":"Architecture","nodes":[...],"edges":[...]}]'
-                                        className="font-mono text-xs w-full min-h-[120px] p-3 border border-border bg-background resize-y focus:outline-none focus:border-foreground transition-colors"
+                                        className="font-mono text-xs w-full min-h-[140px] p-3 border border-border bg-background resize-y focus:outline-none focus:border-foreground transition-colors"
                                         spellCheck={false}
                                     />
-                                    <p className="font-mono text-[10px] text-muted-foreground">
-                                        Paste a JSON array of flowchart definitions. Each object needs: title, nodes[], edges[]
-                                    </p>
+                                    <div className="flex items-center justify-between text-muted-foreground">
+                                        <p className="font-mono text-[10px]">
+                                            Array format: <code>[{`{"title":"Flow 1", ...}`}, {`{"title":"Flow 2", ...}`}]</code>
+                                        </p>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const sampleMulti = [
+                                                    {
+                                                        title: "System Architecture",
+                                                        nodes: [
+                                                            { id: "user", label: "User Browser", type: "actor", description: "Uploads docs and submits queries" },
+                                                            { id: "backend", label: "Backend Server", type: "service", description: "Next.js / FastAPI API layer", tech: ["FastAPI", "Python"] },
+                                                            { id: "chunker", label: "Text Chunker", type: "process", description: "Splits documents into overlapping chunks", tech: ["LangChain"] },
+                                                            { id: "embedding", label: "Embedding Service", type: "process", description: "Generates vector embeddings", tech: ["Gemini Embedding API"] },
+                                                            { id: "database", label: "Supabase pgvector", type: "database", description: "Stores vector embeddings and chunks", tech: ["PostgreSQL", "pgvector"] }
+                                                        ],
+                                                        edges: [
+                                                            { from: "user", to: "backend", label: "Upload Document" },
+                                                            { from: "backend", to: "chunker", label: "Extract & Split" },
+                                                            { from: "chunker", to: "embedding", label: "Batched Chunks" },
+                                                            { from: "embedding", to: "backend", label: "Generated Vectors" },
+                                                            { from: "backend", to: "database", label: "Store Vectors" }
+                                                        ]
+                                                    },
+                                                    {
+                                                        title: "Query & Retrieval Pipeline",
+                                                        nodes: [
+                                                            { id: "query_user", label: "User Query", type: "actor", description: "Search query or chat prompt" },
+                                                            { id: "query_api", label: "Search Gateway", type: "service", description: "Generates query embedding" },
+                                                            { id: "vector_db", label: "Supabase pgvector", type: "database", description: "Cosine similarity search", tech: ["pgvector"] },
+                                                            { id: "llm", label: "Gemini 1.5 Flash", type: "external", description: "RAG augmented response generation", tech: ["Gemini 1.5"] }
+                                                        ],
+                                                        edges: [
+                                                            { from: "query_user", to: "query_api", label: "Submit Query" },
+                                                            { from: "query_api", to: "vector_db", label: "Vector Search" },
+                                                            { from: "vector_db", to: "llm", label: "Top-K Context" },
+                                                            { from: "llm", to: "query_user", label: "Synthesized Answer" }
+                                                        ]
+                                                    }
+                                                ];
+                                                onUpdateFlowchartData(repo.name, JSON.stringify(sampleMulti, null, 2));
+                                            }}
+                                            className="font-mono text-[10px] underline hover:text-foreground transition-colors"
+                                        >
+                                            Load Sample 2-Chart Template
+                                        </button>
+                                    </div>
                                 </div>
                             )}
                         </div>

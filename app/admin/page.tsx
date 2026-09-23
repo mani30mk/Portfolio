@@ -41,6 +41,7 @@ interface ProjectSettings {
   custom_description: string | null
   image_url: string | null
   video_url: string | null
+  live_url: string | null
   flowchart_data: string | null
   display_order: number
 }
@@ -109,6 +110,7 @@ export default function AdminPage() {
             custom_description: p.description,
             image_url: p.imageUrl,
             video_url: p.demoVideoUrl || null,
+            live_url: p.link || null,
             flowchart_data: p.flowchartData || null,
             display_order: p.displayOrder || 0
           }))
@@ -130,6 +132,7 @@ export default function AdminPage() {
               custom_description: null,
               image_url: null,
               video_url: null,
+              live_url: null,
               flowchart_data: null,
               display_order: index,
             })
@@ -247,6 +250,17 @@ export default function AdminPage() {
     })
   }
 
+  function updateLiveURL(repoName: string, url: string) {
+    setProjectSettings((prev) => {
+      const newSettings = new Map(prev)
+      const settings = newSettings.get(repoName)
+      if (settings) {
+        newSettings.set(repoName, { ...settings, live_url: url || null })
+      }
+      return newSettings
+    })
+  }
+
   function updateFlowchartData(repoName: string, data: string) {
     setProjectSettings((prev) => {
       const newSettings = new Map(prev)
@@ -269,6 +283,7 @@ export default function AdminPage() {
           description: settings.custom_description || repo?.description || "No description",
           imageUrl: settings.image_url || null,
           demoVideoUrl: settings.video_url || null,
+          link: settings.live_url || null,
           flowchartData: settings.flowchart_data || null,
           technologies: repo?.topics || [], // Map topics to technologies
           githubUrl: repo?.html_url,
@@ -568,6 +583,7 @@ export default function AdminPage() {
                       onUpdateDescription={updateDescription}
                       onUpdateImageURL={updateImageURL}
                       onUpdateVideoURL={updateVideoURL}
+                      onUpdateLiveURL={updateLiveURL}
                       onUpdateDisplayOrder={updateDisplayOrder}
                       onImageUpload={handleImageUpload}
                       onUpdateFlowchartData={updateFlowchartData}
