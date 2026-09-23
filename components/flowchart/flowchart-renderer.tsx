@@ -9,6 +9,10 @@ import {
   Globe,
   GitFork,
   ArrowRight,
+  ArrowLeft,
+  ArrowUp,
+  ArrowDown,
+  Move,
   Maximize2,
   Minimize2,
   ZoomIn,
@@ -17,7 +21,8 @@ import {
   Layers,
   ChevronDown,
   Lock,
-  Unlock
+  Unlock,
+  SlidersHorizontal
 } from "lucide-react"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -694,6 +699,46 @@ export function FlowchartRenderer({ data }: { data: FlowchartData }) {
     centerDiagram()
   }
 
+  // Directional slide / pan function (used by UI buttons, sliders, and arrow keys)
+  const slideDiagram = useCallback((dx: number, dy: number) => {
+    if (isLocked) return
+    setTranslate(prev => ({
+      x: prev.x + dx,
+      y: prev.y + dy
+    }))
+  }, [isLocked])
+
+  // Keyboard navigation: Left, Right, Up, Down arrow keys to slide diagram window
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (isLocked) return
+
+      // Don't intercept if user is typing in an input/textarea
+      const target = e.target as HTMLElement | null
+      if (target && ["INPUT", "TEXTAREA"].includes(target.tagName)) {
+        return
+      }
+
+      const STEP = e.shiftKey ? 140 : 70
+      if (e.key === "ArrowLeft") {
+        e.preventDefault()
+        slideDiagram(STEP, 0)
+      } else if (e.key === "ArrowRight") {
+        e.preventDefault()
+        slideDiagram(-STEP, 0)
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault()
+        slideDiagram(0, STEP)
+      } else if (e.key === "ArrowDown") {
+        e.preventDefault()
+        slideDiagram(0, -STEP)
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [isLocked, slideDiagram])
+
   // Pan controls (locked when isLocked is true)
   const handleMouseDown = (e: React.MouseEvent) => {
     if (isLocked) return
@@ -796,7 +841,27 @@ export function FlowchartRenderer({ data }: { data: FlowchartData }) {
           >
             <ZoomOut className="h-3 w-3" />
           </button>
-          <span className="font-mono text-xs text-muted-foreground px-2 min-w-[3.5rem] text-center">
+
+          {/* Zoom Slider */}
+          <input
+            type="range"
+            min={35}
+            max={220}
+            value={Math.round(scale * 100)}
+            onChange={(e) => {
+              const newScale = parseInt(e.target.value) / 100
+              const vw = viewportRef.current?.clientWidth || 900
+              const vh = viewportRef.current?.clientHeight || 560
+              zoomAroundPoint(newScale, vw / 2, vh / 2)
+            }}
+            disabled={isLocked}
+            className={`w-14 sm:w-20 h-1 accent-foreground transition-opacity ${
+              isLocked ? "opacity-30 cursor-not-allowed" : "cursor-pointer"
+            }`}
+            title="Zoom slider"
+          />
+
+          <span className="font-mono text-xs text-muted-foreground px-1.5 min-w-[3.2rem] text-center">
             {Math.round(scale * 100)}%
           </span>
           <button
@@ -838,7 +903,8 @@ export function FlowchartRenderer({ data }: { data: FlowchartData }) {
       {/* ── Canvas Viewport ── */}
       <div
         ref={viewportRef}
-        className={`relative overflow-hidden bg-background ${
+        tabIndex={0}
+        className={`relative overflow-hidden bg-background focus:outline-none ${
           isLocked ? "cursor-default" : "cursor-grab active:cursor-grabbing"
         }`}
         style={{ minHeight: "520px", height: isFullscreen ? "100vh" : "72vh" }}
@@ -1138,6 +1204,189 @@ export function FlowchartRenderer({ data }: { data: FlowchartData }) {
               />
             )
           })}
+        </div>
+
+        {/* ── Directional Slider & Arrow Pad Controls ── */}
+        <div className="absolute bottom-4 right-4 z-20 flex flex-col items-center bg-background/90 backdrop-blur-sm border border-foreground/30 p-2 shadow-lg select-none">
+          <div className="flex items-center justify-between w-full mb-1">
+            <span className="font-mono text-[8px] uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+              <Move className="h-2.5 w-2.5" /> Navigate
+            </span>
+          </div>
+
+          {/* Up Arrow */}
+          <button
+            onClick={() => slideDiagram(0, 70)}
+            disabled={isLocked}
+            className={`p-1.5 border border-foreground/30 transition-colors ${
+              isLocked
+                ? "opacity-30 cursor-not-allowed"
+                : "hover:bg-foreground hover:text-background cursor-pointer active:scale-95"
+            }`}
+            title="Slide Up (or press ↑ on keyboard)"
+          >
+            <ArrowUp className="h-3.5 w-3.5" />
+          </button>
+
+          {/* Left, Center, Right Arrows */}
+          <div className="flex items-center gap-1 my-1">
+            <button
+              onClick={() => slideDiagram(70, 0)}
+              disabled={isLocked}
+              className={`p-1.5 border border-foreground/30 transition-colors ${
+                isLocked
+                  ? "opacity-30 cursor-not-allowed"
+                  : "hover:bg-foreground hover:text-background cursor-pointer active:scale-95"
+              }`}
+              title="Slide Left (or press ← on keyboard)"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={resetView}
+              disabled={isLocked}
+              className={`w-7 h-7 text-[10px] font-mono border border-foreground/30 transition-colors flex items-center justify-center ${
+                isLocked
+                  ? "opacity-30 cursor-not-allowed"
+                  : "hover:bg-foreground hover:text-background cursor-pointer active:scale-95"
+              }`}
+              title="Center Diagram"
+            >
+              •
+            </button>
+            <button
+              onClick={() => slideDiagram(-70, 0)}
+              disabled={isLocked}
+              className={`p-1.5 border border-foreground/30 transition-colors ${
+                isLocked
+                  ? "opacity-30 cursor-not-allowed"
+                  : "hover:bg-foreground hover:text-background cursor-pointer active:scale-95"
+              }`}
+              title="Slide Right (or press → on keyboard)"
+            >
+              <ArrowRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
+
+          {/* Down Arrow */}
+          <button
+            onClick={() => slideDiagram(0, -70)}
+            disabled={isLocked}
+            className={`p-1.5 border border-foreground/30 transition-colors ${
+              isLocked
+                ? "opacity-30 cursor-not-allowed"
+                : "hover:bg-foreground hover:text-background cursor-pointer active:scale-95"
+            }`}
+            title="Slide Down (or press ↓ on keyboard)"
+          >
+            <ArrowDown className="h-3.5 w-3.5" />
+          </button>
+
+          <span className="font-mono text-[7px] text-muted-foreground/60 mt-1">
+            ↑ ↓ ← →
+          </span>
+        </div>
+
+        {/* ── Dual Window Sliders (Horizontal & Vertical) ── */}
+        <div className="absolute bottom-4 left-4 z-20 hidden sm:flex flex-col gap-1.5 bg-background/90 backdrop-blur-sm border border-foreground/30 px-3 py-2 shadow-lg select-none font-mono">
+          <div className="flex items-center justify-between gap-3 text-muted-foreground pb-1 border-b border-foreground/15">
+            <span className="flex items-center gap-1 uppercase tracking-wider text-[8px] font-semibold text-foreground">
+              <SlidersHorizontal className="h-2.5 w-2.5" /> Window Sliders
+            </span>
+            <span className="text-[7.5px] text-muted-foreground/70">
+              Keys: ↑ ↓ ← →
+            </span>
+          </div>
+
+          {/* Horizontal X Slider (Left / Right) */}
+          <div className="flex items-center gap-1.5 text-[9px]">
+            <span className="w-2.5 text-muted-foreground font-semibold">X</span>
+            <button
+              onClick={() => slideDiagram(70, 0)}
+              disabled={isLocked}
+              className={`p-1 border border-foreground/30 transition-colors ${
+                isLocked
+                  ? "opacity-30 cursor-not-allowed"
+                  : "hover:bg-foreground hover:text-background cursor-pointer active:scale-95"
+              }`}
+              title="Slide Window Left (or press ← key)"
+            >
+              <ArrowLeft className="h-2.5 w-2.5" />
+            </button>
+            <input
+              type="range"
+              step={25}
+              min={-Math.max(1200, Math.round(canvasWidth))}
+              max={Math.max(1200, Math.round(canvasWidth))}
+              value={translate.x}
+              onChange={(e) => {
+                if (isLocked) return
+                setTranslate(prev => ({ ...prev, x: parseInt(e.target.value) }))
+              }}
+              disabled={isLocked}
+              className={`w-28 sm:w-36 h-1 accent-foreground ${
+                isLocked ? "opacity-30 cursor-not-allowed" : "cursor-pointer"
+              }`}
+              title="Horizontal Window Slider (control with ← / → arrows)"
+            />
+            <button
+              onClick={() => slideDiagram(-70, 0)}
+              disabled={isLocked}
+              className={`p-1 border border-foreground/30 transition-colors ${
+                isLocked
+                  ? "opacity-30 cursor-not-allowed"
+                  : "hover:bg-foreground hover:text-background cursor-pointer active:scale-95"
+              }`}
+              title="Slide Window Right (or press → key)"
+            >
+              <ArrowRight className="h-2.5 w-2.5" />
+            </button>
+          </div>
+
+          {/* Vertical Y Slider (Up / Down) */}
+          <div className="flex items-center gap-1.5 text-[9px]">
+            <span className="w-2.5 text-muted-foreground font-semibold">Y</span>
+            <button
+              onClick={() => slideDiagram(0, 70)}
+              disabled={isLocked}
+              className={`p-1 border border-foreground/30 transition-colors ${
+                isLocked
+                  ? "opacity-30 cursor-not-allowed"
+                  : "hover:bg-foreground hover:text-background cursor-pointer active:scale-95"
+              }`}
+              title="Slide Window Up (or press ↑ key)"
+            >
+              <ArrowUp className="h-2.5 w-2.5" />
+            </button>
+            <input
+              type="range"
+              step={25}
+              min={-Math.max(1200, Math.round(canvasHeight))}
+              max={Math.max(1200, Math.round(canvasHeight))}
+              value={translate.y}
+              onChange={(e) => {
+                if (isLocked) return
+                setTranslate(prev => ({ ...prev, y: parseInt(e.target.value) }))
+              }}
+              disabled={isLocked}
+              className={`w-28 sm:w-36 h-1 accent-foreground ${
+                isLocked ? "opacity-30 cursor-not-allowed" : "cursor-pointer"
+              }`}
+              title="Vertical Window Slider (control with ↑ / ↓ arrows)"
+            />
+            <button
+              onClick={() => slideDiagram(0, -70)}
+              disabled={isLocked}
+              className={`p-1 border border-foreground/30 transition-colors ${
+                isLocked
+                  ? "opacity-30 cursor-not-allowed"
+                  : "hover:bg-foreground hover:text-background cursor-pointer active:scale-95"
+              }`}
+              title="Slide Window Down (or press ↓ key)"
+            >
+              <ArrowDown className="h-2.5 w-2.5" />
+            </button>
+          </div>
         </div>
       </div>
 

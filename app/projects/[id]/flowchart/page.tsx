@@ -233,7 +233,7 @@ export default function FlowchartPage({ params }: { params: Promise<{ id: string
             {flowcharts.length > 1 && ` · ${flowcharts.length} diagrams`}
           </p>
           <p className="font-mono text-[10px] text-muted-foreground/50">
-            scroll to zoom · drag to pan · click node for details
+            zoom slider · arrow keys (↑ ↓ ← →) or sliders to slide window · click node for details
           </p>
         </div>
       </div>
